@@ -30,8 +30,8 @@ On the Socketstream Console you can Play with the DJ Backbone Model by requiring
   
 
 
-      DJ = SS.require("models/dj.coffee")
-      new_dj = new DJ({name: "a0n", email: "bla@bla.xyz", pw: "insecure"})
+      SS.require("models/dj.coffee")
+      new_dj = new SS.models.dj({name: "a0n", email: "bla@bla.xyz", pw: "insecure"})
   
 
 
