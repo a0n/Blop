@@ -58,6 +58,8 @@ _.extend(DJStore.prototype, {
     
     
   update: (model, options) ->
+    # we need to prevent that the user changes the email to his account, maybe it is better ONLY use emails - and don't use any id's for the user - but i guess that it would
+    # be nicer to support multiple emails and accounts for authentication bringing a little more complexity
     if model.changedAttributes()
       timestamp = {updated_at: Date.now()}
       model.attributes = _.extend(model.attributes, timestamp)

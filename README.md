@@ -1,3 +1,14 @@
+Howto Test
+  Install all modules by running npm install
+  
+  By Now you can use SS.server.dj.create() to create a new DJ via Websockets
+  On the Socketstream Console you can Play with the DJ Backbone Model by requiring it
+  
+  DJ = SS.require("models/dj.coffee")
+  new_dj = new DJ({name: "a0n", email: "bla@bla.xyz", pw: "insecure"})
+  
+
+
 Blip rewrite doc
   App Focus
     To provide a fully opensource alternative to the blip.fm service
