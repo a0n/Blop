@@ -23,6 +23,8 @@ By Now you can use
       SS.server.dj.authenticate({email: "", pw: ""})
 
 to create a new DJ via Websockets.
+The Global SS variable is available on client and server. you can access it from the socketstream console AND from the console of your Browser
+
 
 On the Socketstream Console you can Play with the DJ Backbone Model by requiring it
   
