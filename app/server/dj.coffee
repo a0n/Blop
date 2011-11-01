@@ -19,6 +19,10 @@ exports.actions =
       @session.setUserId(response.user_id) if response.success
       cb(response)
       
+      
+  deauthenticate: (cb) ->
+    @session.user.logout(cb)
+      
   activity: (cb) ->
     
   given_probs: (cb) ->
