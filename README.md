@@ -5,9 +5,11 @@ Inside the project folder run:
 
 This installs all necessary modules. If you add new modules to this project, please make sure to add your dependencies to packages.json
 You can then start the server with:
+
         socketstream start
         
 And enter the console with:
+
         socketstream console
 
 
