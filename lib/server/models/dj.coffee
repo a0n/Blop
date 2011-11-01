@@ -38,11 +38,11 @@ _.extend(DJStore.prototype, {
     R.watch(["email:" + model.get("email"), key_prefix + model.id])
     R.exists "email:" + model.get("email"), (err, email_exists) ->
       if email_exists == 1
-        send_response("Email does already exist", undefined, options)
+        throw("Email exists")
       else
         R.exists key_prefix + model.id, (err, id_exists) ->
           if id_exists == 1
-            send_response("ID does already exist", undefined, options)
+            throw("ID does already exist")
           else
             write_transaction = R.multi();
             timestamp = {created_at: Date.now()}
@@ -52,7 +52,7 @@ _.extend(DJStore.prototype, {
             write_transaction.hmset key_prefix + model.id, model.toJSON()
             write_transaction.exec (err, replies) ->
               if replies == null
-                send_response("Object could not be saved. Please try again")
+                throw("Object could not be saved. Please try again")
               else
                 send_response(err, {}, options)
     
@@ -113,15 +113,18 @@ DJ = Backbone.Model.extend ({
     resp = undefined
     store = model.redisStorage or model.collection.redisStorage
     console.log("syncing with redis" + method)
-    switch method
-      when "read"
-        if model.id then store.find(model, options) else store.findAll(options)
-      when "create"
-        store.create(model, options)
-      when "update"
-        store.update(model, options)
-      when "delete"
-        store.destroy(model, options)
+    try 
+      switch method
+        when "read"
+          if model.id then store.find(model, options) else store.findAll(options)
+        when "create"
+          store.create(model, options)
+        when "update"
+          store.update(model, options)
+        when "delete"
+          store.destroy(model, options)
+    catch error
+      options.error(error)
 })
 
 _.extend(SS.models, {dj: DJ})
