@@ -26,7 +26,7 @@ to create a new DJ via Websockets.
 The Global SS variable is available on client and server. you can access it from the socketstream console AND from the console of your Browser
 
 
-On the Socketstream Console you can Play with the DJ Backbone Model by requiring it
+On the Socketstream Console you can Play with the DJ Backbone Model by requiring it. This model, by now, is only testet on the server side.
   
 
 
