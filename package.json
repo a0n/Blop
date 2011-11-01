@@ -1,7 +1,7 @@
 {
   "name": "Blop",
-  "description": "An awesome real time application",
-  "version": "0.1.0",
+  "description": "Draft Socketstream implementation of a microblogging community for music.",
+  "version": "0.0.5",
   "author": "Aaron Israel <ai@gobas.de>",
   "engines": { "node": ">= 0.4.0 < 0.5.0" },
   "dependencies": {
