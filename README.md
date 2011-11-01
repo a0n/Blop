@@ -19,8 +19,8 @@ Redis Store. But is planed to work on both the Server and the Client.
 
 By Now you can use 
 
-      SS.server.dj.create() 
-      SS.server.dj.authenticate({email: "", pw: ""})
+      SS.server.dj.create({name: "a0n", email: "bla@bla.xyz", pw: "insecure"}, function(response) {}) 
+      SS.server.dj.authenticate({email: "a0n", pw: "insecure"})
 
 to create a new DJ via Websockets.
 The Global SS variable is available on client and server. you can access it from the socketstream console AND from the console of your Browser
