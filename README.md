@@ -12,6 +12,7 @@ Redis Store. But is planed to work on both the Server and the Client.
 By Now you can use 
 
       SS.server.dj.create() 
+      SS.server.dj.authenticate({email: "", pw: ""})
 
 to create a new DJ via Websockets.
 
