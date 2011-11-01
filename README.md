@@ -4,6 +4,12 @@ Inside the project folder run:
           npm install
 
 This installs all necessary modules. If you add new modules to this project, please make sure to add your dependencies to packages.json
+You can then start the server with:
+        socketstream start
+        
+And enter the console with:
+        socketstream console
+
 
 This Code is just a draft most of the stuff is not implemented yet.
 I started to create a DJ Model in Backbone that by now works with a ServerSide
