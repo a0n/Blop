@@ -32,7 +32,7 @@ On the Socketstream Console you can Play with the DJ Backbone Model by requiring
 
       SS.require("models/dj.coffee")
       new_dj = new SS.models.dj({name: "a0n", email: "bla@bla.xyz", pw: "insecure"})
-  
+      new_dj.save({}, {error: function(model, err) {}, success: function(model, resp){} })
 
 
 # Blip rewrite doc #
