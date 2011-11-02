@@ -1,61 +1,93 @@
 _ = require('underscore')._
-Backbone = require('backbone')
-rbytes = require("rbytes")
+Backbone = require 'backbone'
+rbytes = require 'rbytes'
+Seq = require 'seq'
 
-send_response = (err, response, options) ->
-  if err
-    options.error(err)
-  else if _.isUndefined(response)
-    options.errror("Reccord not found.")
+callRedis = (command, key, value, success) ->
+  handle_response = (err, response) ->
+    if err
+      throw new Error(err)
+    else if command == ("exists"||"hexists")
+      success(response == 1 ? true : false)
+    else 
+      success response
+  
+  options = {}
+  
+  if _.isString(command)
+    if _.isUndefined(R[command])
+      throw new Error("redis command not found")
   else
-    options.success(response)
+    throw new Error("wrong command")
+    
+  unless _.isString(key)
+    throw new Error("wrong key")
+    
+  if _.isFunction(value)
+    if _.isUndefined(success)
+      success = value
+    value = undefined
+    
+  if _.isEmpty(value)
+    R[command] key, handle_response
+  else
+    R[command] key, value, handle_response
 
 DJStore = (key_prefix) ->
   @key_prefix = "dj:" 
 
 _.extend(DJStore.prototype, {
+    
   findAll: (options) ->
     R.hgetall @key_prefix + id, (err, user) ->
-     send_response(err, user, options)
+     options.success(user)
 
   find: (model, options) ->
     if _.isString(model)
      id = model
-    else
+    else if model
      id = model.id
-    R.hgetall @key_prefix + id, (err, user) ->
-      send_response(err, user, options)
-      
-  create: (model, options) -> 
-    model.id = model.attributes["id"] if model.attributes["id"]
-    delete model.attributes["id"]
-    if (!model.id)
-      model.id = rbytes.randomBytes(16).toHex()
-    key_prefix = @key_prefix
     
-    
-    #Watch key so that after now it won't change anymore until the writetransaction is done
-    R.watch(["email:" + model.get("email"), key_prefix + model.id])
-    R.exists "email:" + model.get("email"), (err, email_exists) ->
-      if email_exists == 1
-        throw("Email exists")
+    callRedis "hgetall", @key_prefix + id, options.error, (dj_hash) ->
+      if _.isEmpty(dj_hash)
+        options.error("User not found")
       else
-        R.exists key_prefix + model.id, (err, id_exists) ->
-          if id_exists == 1
-            throw("ID does already exist")
+        options.success(dj_hash)
+  
+  create: (model, options) ->
+    key_prefix = @key_prefix
+    model.id = rbytes.randomBytes(16).toHex()
+    Seq()
+      .par_((next) -> R.exists key_prefix + model.id, next)
+      .par_((next) -> R.hexists "dj:emails", model.get("email"), next)
+      .par_((next) -> R.hexists "dj:names", model.get("name") , next)
+      .seq_((next, key_exists, email_exists, name_exists) ->
+        console.log(key_exists, email_exists, name_exists)
+        if (key_exists)
+          options.error("key exists")
+        else if (email_exists)
+          options.error("email exists")
+        else if (name_exists)
+          options.error("name exists")
+        else
+          next()
+      )
+      .seq_((next) ->
+        write_transaction = R.multi();
+        timestamp = {created_at: Date.now()}
+        model.attributes = _.extend(model.attributes, timestamp)
+
+        write_transaction.hsetnx "dj:emails", model.get("email"), model.id
+        write_transaction.hsetnx "dj:names", model.get("name"), model.id
+
+        write_transaction.hmset key_prefix + model.id, model.toJSON()
+        write_transaction.exec (err, replies) ->
+          if replies == null || err
+            options.error("Object could not be saved. Please try again")
           else
-            write_transaction = R.multi();
-            timestamp = {created_at: Date.now()}
-            model.attributes = _.extend(model.attributes, timestamp)
-        
-            write_transaction.hmset "email:" + model.get("email"), {id: model.id}
-            write_transaction.hmset key_prefix + model.id, model.toJSON()
-            write_transaction.exec (err, replies) ->
-              if replies == null
-                throw("Object could not be saved. Please try again")
-              else
-                send_response(err, {}, options)
-    
+            options.success(timestamp)
+      )
+    return undefined
     
   update: (model, options) ->
     # we need to prevent that the user changes the email to his account, maybe it is better ONLY use emails - and don't use any id's for the user - but i guess that it would
@@ -63,12 +95,19 @@ _.extend(DJStore.prototype, {
     if model.changedAttributes()
       timestamp = {updated_at: Date.now()}
       model.attributes = _.extend(model.attributes, timestamp)
+      R.hmset 
       R.hmset @key_prefix + model.id, model.changedAttributes(), (err, response) ->
-        send_response(err, {}, options)
+        if err
+          options.error err
+        else
+          options.success timestamp
 
   destroy: (model, options) ->
-    R.del @key_prefix + model.id, (err, response) ->
-      send_response(err, {}, options)
+    R.del, @key_prefix + model.id, (err, response) ->
+      if err
+        options.error err
+      else
+        options.success true
 })
 
 
@@ -79,8 +118,7 @@ DJ = Backbone.Model.extend ({
     
   # must validate fields in O(1) all calls that need to validate something against the db has to be in the sync method
   validate: (attrs) ->
-    console.log("validate with")
-    console.log(attrs)
+    console.log("validate with", attrs)
     errors = []
     attributes = _.extend(@attributes, attrs)
     non_allowed_keys = _.difference(_.keys(_.extend(@attributes, attrs)), ["email", "pw", "name", "created_at", "updated_at"])
@@ -103,6 +141,7 @@ DJ = Backbone.Model.extend ({
       errors.push("This Password is to short")
   
     if _.any(errors)
+      console.log("VALIDATION ERROR!")
       return {error: true, message: errors}
     else
       return null
@@ -112,8 +151,8 @@ DJ = Backbone.Model.extend ({
   sync: (method, model, options) ->
     resp = undefined
     store = model.redisStorage or model.collection.redisStorage
-    console.log("syncing with redis" + method)
-    try 
+    console.log("Syncing with redis calling method: " + method)
+    try
       switch method
         when "read"
           if model.id then store.find(model, options) else store.findAll(options)
@@ -124,6 +163,7 @@ DJ = Backbone.Model.extend ({
         when "delete"
           store.destroy(model, options)
     catch error
+      console.log("Cathing Error in Backbone.sync", error)
       options.error(error)
 })
 

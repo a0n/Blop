@@ -3,12 +3,27 @@
 SS.require "models/dj.coffee"
 
 exports.actions =
+
+  find: (id, cb) ->
+    x = new SS.models.dj()
+    x.id = id
+    x.fetch({
+      success: (model, response) ->
+        console.log("Running Success callback from fetch method")
+        cb model.toJSON()
+      error: (model, error) ->
+        console.log("Running Error callback from fetch method")
+        cb error
+    })
+
   create: (params, cb) ->
     x = new SS.models.dj(params)
     x.save({}, {
       success: (model, response) ->
+        console.log("Created DJ")
         cb {success: true, created_at: model.get("created_at")}
       error: (model, error) ->
+        console.log("Created error DJ")
         cb {error: true, messages: error}
     })
     
@@ -24,6 +39,13 @@ exports.actions =
     @session.user.logout(cb)
       
   activity: (cb) ->
+    try
+      test = 123
+      ->
+        throw "test error"
+      cb true
+    catch error
+      cb error
     
   given_probs: (cb) ->
     
