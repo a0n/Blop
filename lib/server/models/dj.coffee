@@ -59,8 +59,8 @@ _.extend(DJStore.prototype, {
     model.id = rbytes.randomBytes(16).toHex()
     Seq()
       .par_((next) -> R.exists key_prefix + model.id, next)
-      .par_((next) -> R.hexists "dj:emails", model.get("email"), next)
-      .par_((next) -> R.hexists "dj:names", model.get("name") , next)
+      .par_((next) -> R.hexists key_prefix + "emails", model.get("email"), next)
+      .par_((next) -> R.hexists key_prefix + "names", model.get("name") , next)
       .seq_((next, key_exists, email_exists, name_exists) ->
         console.log(key_exists, email_exists, name_exists)
         if (key_exists)
@@ -79,8 +79,8 @@ _.extend(DJStore.prototype, {
 
         write_transaction.hsetnx "dj:emails", model.get("email"), model.id
         write_transaction.hsetnx "dj:names", model.get("name"), model.id
-
         write_transaction.hmset key_prefix + model.id, model.toJSON()
+        
         write_transaction.exec (err, replies) ->
           if replies == null || err
             options.error("Object could not be saved. Please try again")
@@ -95,7 +95,6 @@ _.extend(DJStore.prototype, {
     if model.changedAttributes()
       timestamp = {updated_at: Date.now()}
       model.attributes = _.extend(model.attributes, timestamp)
-      R.hmset 
       R.hmset @key_prefix + model.id, model.changedAttributes(), (err, response) ->
         if err
           options.error err
