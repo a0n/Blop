@@ -8,7 +8,7 @@
     "socketstream": "~>0.2.0",
     "backbone": "~>0.5.3",
     "underscore": "~>1.2.1",
-    "rbytes": "~>0.0.2",
+    "node-uuid": "~>1.2.0",
     "seq" : "~>0.3.5"
   }
 }

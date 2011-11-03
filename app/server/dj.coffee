@@ -1,18 +1,17 @@
 # Server-side Code
-
+_ = require('underscore')._
 SS.require "models/dj.coffee"
 
 exports.actions =
-
-  find: (id, cb) ->
+  get: (id, cb) ->
     x = new SS.models.dj()
     x.id = id
     x.fetch({
       success: (model, response) ->
-        console.log("Running Success callback from fetch method")
+        SS.log.error.message("Running Success callback from fetch method")
         cb model.toJSON()
       error: (model, error) ->
-        console.log("Running Error callback from fetch method")
+        SS.log.error.message("Running Error callback from fetch method")
         cb error
     })
 
@@ -20,14 +19,57 @@ exports.actions =
     x = new SS.models.dj(params)
     x.save({}, {
       success: (model, response) ->
-        console.log("Created DJ")
-        cb {success: true, created_at: model.get("created_at")}
+        SS.log.error.message("Created DJ")
+        cb _.extend(response, {id: model.id})
       error: (model, error) ->
-        console.log("Created error DJ")
+        SS.log.error.message("Created error DJ")
         cb {error: true, messages: error}
+    })
+    return undefined
+    
+  update: (id, params, cb) ->
+    x = new SS.models.dj()
+    x.id = id
+    x.fetch({
+      success: (model, resp) ->
+        SS.log.error.message("Running Success callback from update method in fetch part")
+        x.change()
+        #x.set(params, {silent: true})
+        
+        x.save(params, {
+          silent: true
+          success: (model, response) ->
+            SS.log.error.message("Created DJ")
+            console.log(model)
+            cb response
+          error: (model, error) ->
+            SS.log.error.message("Created error DJ")
+            cb {error: true, messages: error}
+        })
+        
+      error: (model, error) ->
+        SS.log.error.message("Running Error callback from update method in fetch part")
+        cb error
     })
     
   delete: (id, cb) ->
+    x = new SS.models.dj()
+    x.id = id
+    x.fetch({
+      success: (model, resp) ->
+        SS.log.error.message("Running Error callback in dj controller from delete method in fetch part")
+        model.destroy({
+          success: (model, response) ->
+            SS.log.error.message("Running Success callback in dj controller from delete method in delete part")
+            cb model.toJSON()
+          error: (model, error) ->
+            SS.log.error.message("Running Error callback in dj controller from delete method in delete part")
+            cb error
+        })
+      error: (model, error) ->
+        SS.log.error.message("Running Error callback in dj controller from delete method in fetch part")
+        cb error
+    })
     
   authenticate: (params, cb) ->
     @session.authenticate 'user_auth', params, (response) =>

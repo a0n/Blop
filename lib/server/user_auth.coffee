@@ -11,7 +11,7 @@ exports.authenticate = (params, cb) ->
   
 
 get_user_id_for_email = (email, cb) ->
-  R.hget "email:" + email, "id", (err, user_id) ->
+  R.hget "dj:emails", email, (err, user_id) ->
     cb user_id
   
 validate_user_login = (user_id, password, cb) ->
