@@ -1,43 +1,22 @@
 _ = require('underscore')._
-Backbone = require 'backbone'
 uuid = require 'node-uuid'
 Seq = require 'seq'
 
+DeeJayStore = (key_prefix) ->
+  @key_prefix = "deejay:" 
 
-Backbone.sync = (method, model, options) ->
-  resp = undefined
-  store = model.redisStorage or model.collection.redisStorage
-  SS.log.error.message("Syncing with redis calling method: " + method)
-  try
-    switch method
-      when "read"
-        if model.id then store.find(model, options) else store.findAll(options)
-      when "create"
-        store.create(model, options)
-      when "update"
-        store.update(model, options)
-      when "delete"
-        store.destroy(model, options)
-  catch error
-    SS.log.error.message("Cathing Error in Backbone.sync", error)
-    options.error(error)
-
-
-DJStore = (key_prefix) ->
-  @key_prefix = "dj:" 
-
-_.extend(DJStore.prototype, {
+_.extend(DeeJayStore.prototype, {
     
   findAll: (options) ->
     console.log("starting to find all")
     Seq()
       .seq_((next) ->
-        R.keys "dj:????????-????-????-????-????????????", next
+        R.keys "deejay:????????-????-????-????-????????????", next
       )
       .flatten()
       .parEach_((next, key) ->
         console.log("key:", key)
-        R.hgetall key, next.into(key.replace(/dj:/, ""))
+        R.hgetall key, next.into(key.replace(/deejay:/, ""))
       )
       .seq_((next, hash) ->
         console.log @vars
@@ -57,7 +36,7 @@ _.extend(DJStore.prototype, {
     return undefined
 
   find: (model, options) ->
-    SS.log.error.message("dj store find")
+    SS.log.error.message("deejay store find")
     if _.isString(model)
      id = model
     else if model
@@ -74,7 +53,6 @@ _.extend(DJStore.prototype, {
        if _.isFunction(options.success)
          options.success(resp)
     
-    SS.log.error.message("dj store create")
     key_prefix = @key_prefix
     model.id = uuid()
     Seq()
@@ -95,8 +73,8 @@ _.extend(DJStore.prototype, {
         timestamp = {created_at: Date.now()}
         model.attributes = _.extend(model.attributes, timestamp)
 
-        write_transaction.hsetnx "dj:emails", model.get("email"), model.id
-        write_transaction.hsetnx "dj:names", model.get("name"), model.id
+        write_transaction.hsetnx "deejay:emails", model.get("email"), model.id
+        write_transaction.hsetnx "deejay:names", model.get("name"), model.id
         write_transaction.hmset key_prefix + model.id, model.toJSON()
         
         write_transaction.exec (err, replies) ->
@@ -115,13 +93,13 @@ _.extend(DJStore.prototype, {
     return undefined
     
   update: (model, options) ->
-    SS.log.error.message("dj store update")
+    SS.log.error.message("deejay store update")
     # we need to prevent that the user changes the email to his account, maybe it is better ONLY use emails - and don't use any id's for the user - but i guess that it would
     # be nicer to support multiple emails and accounts for authentication bringing a little more complexity
     
     timestamp = {updated_at: Date.now()}
     changes = _.extend(model.changedAttributes(), timestamp)
-    key_prefix = "dj:"
+    key_prefix = "deejay:"
     
     if !model.hasChanged()
       options.success(false)
@@ -162,10 +140,10 @@ _.extend(DJStore.prototype, {
         .seq_((next, id_by_email, id_by_name) ->
           errors = []
           if _.isString(id_by_email) && id_by_email != model.id
-            errors.push "email is already in use by another dj"
+            errors.push "email is already in use by another deejay"
   
           if _.isString(id_by_name) && id_by_name != model.id
-             errors.push "name is already in use by another dj"
+             errors.push "name is already in use by another deejay"
   
           if errors.length > 0
             R.unwatch key_prefix + model.id, key_prefix + "emails", key_prefix + "names"
@@ -179,11 +157,11 @@ _.extend(DJStore.prototype, {
           write_transaction.hmset key_prefix + model.id, changes
                 
           if model.hasChanged("email")
-            write_transaction.hset "dj:emails", changes["email"], model.id 
-            write_transaction.hdel "dj:emails", model.previous("email")
+            write_transaction.hset "deejay:emails", changes["email"], model.id 
+            write_transaction.hdel "deejay:emails", model.previous("email")
           if model.hasChanged("name")
-            write_transaction.hset "dj:names", changes["name"], model.id
-            write_transaction.hdel "dj:names", model.previous("name")
+            write_transaction.hset "deejay:names", changes["name"], model.id
+            write_transaction.hdel "deejay:names", model.previous("name")
 
           write_transaction.exec (err, replies) ->
             if err || replies == null 
@@ -200,7 +178,7 @@ _.extend(DJStore.prototype, {
       return undefined
 
   destroy: (model, options) ->
-    SS.log.error.message("dj store destroy")
+    SS.log.error.message("deejay store destroy")
     if _.isString(model)
      id = model
     else if model
@@ -208,8 +186,8 @@ _.extend(DJStore.prototype, {
     
     delete_transaction = R.multi();
     
-    delete_transaction.hdel "dj:emails", model.get("email")
-    delete_transaction.hdel "dj:names", model.get("name")
+    delete_transaction.hdel "deejay:emails", model.get("email")
+    delete_transaction.hdel "deejay:names", model.get("name")
     delete_transaction.del @key_prefix + id
     delete_transaction.exec (err, replies) ->
       if err || replies == null
@@ -218,51 +196,4 @@ _.extend(DJStore.prototype, {
         options.success true
 })
 
-DJS = Backbone.Collection.extend ({
-  model: DJ
-  redisStorage: new DJStore("dj")
-})
-
-DJ = Backbone.Model.extend ({
-  initialize: () ->
-  
-  redisStorage: new DJStore("dj")
-  
-  followers: new DJS({dj_id: @id})
-    
-  # must validate fields in O(1) all calls that need to validate something against the db has to be in the sync method
-  validate: (attrs) ->
-    SS.log.error.message("validate with", attrs)
-    errors = []
-    attributes = _.extend(@attributes, attrs)
-    non_allowed_keys = _.difference(_.keys(_.extend(@attributes, attrs)), ["id", "email", "pw", "name", "created_at", "updated_at"])
-    if non_allowed_keys.length > 0
-      errors.push("The following keys are not allowed: " + non_allowed_keys.join(", "))
-    
-    if _.isUndefined(attributes["name"])
-      errors.push("Name is missing")
-    else if attributes["name"].length < 3
-      errors.push("This name is to short")
-      
-    if _.isUndefined(attributes["email"])
-      errors.push("Email is missing")
-    else if attributes["email"].length < 5
-      errors.push("This Email is invalid")
-    
-    if _.isUndefined(attributes["pw"])
-      errors.push("Password is missing")
-    else if attributes["pw"].length < 5
-      errors.push("This Password is to short")
-  
-    if _.any(errors)
-      SS.log.error.message("VALIDATION ERROR!")
-      console.log(errors)
-      return {error: true, message: errors}
-    else
-      return null
- 
-})
-
-
-
-_.extend(SS.models, {dj: DJ, djs: DJS})
+module.exports = DeeJayStore
