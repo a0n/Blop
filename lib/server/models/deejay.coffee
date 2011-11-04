@@ -16,13 +16,14 @@ Following = Backbone.Collection.extend ({
 
 DeeJay = Backbone.Model.extend ({
   initialize: () ->
+    @_validate_uniqueness_of = ["name", "email"]
     @followers = new Followers()
     @followers.extend({parrent: @})
     
     @following = new Following()
     @following.extend({parrent: @})
     
-  redisStorage: new DeeJayStore("deejay")
+  redisStorage: new DeeJayStore("dj")
     
   # must validate fields in O(1) all calls that need to validate something against the db has to be in the sync method
   validate: (attrs) ->

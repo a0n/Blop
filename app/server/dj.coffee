@@ -26,7 +26,7 @@ exports.actions =
     x = new SS.models.deejay(params)
     x.save({}, {
       success: (model, response) ->
-        cb _.extend(response, {id: model.id})
+        cb response
       error: (model, error) ->
         cb {error: true, messages: error}
     })
@@ -43,10 +43,10 @@ exports.actions =
           cb err
         else
           SS.log.error.message("Running Success callback from update method in fetch part")
-          x.change()
+          dj.change()
           #x.set(params, {silent: true})
         
-          x.save(params, {
+          dj.save(params, {
             silent: true
             success: (model, response) ->
               SS.log.error.message("Created DJ")

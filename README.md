@@ -20,7 +20,9 @@ Redis Store. But is planed to work on both the Server and the Client.
 By Now you can use 
 
       SS.server.dj.create({name: "a0n", email: "bla@bla.xyz", pw: "insecure"}, function(response) {}) 
-      SS.server.dj.authenticate({email: "a0n", pw: "insecure"})
+      SS.server.dj.update(id: "XXX-XXX...." {pw: "lessinsecure"}, function(response) {})
+      SS.server.dj.authenticate({email: "a0n", pw: "lessinsecure"})
+      SS.server.dj.
 
 to create a new DJ via Websockets.
 The Global SS variable is available on client and server. you can access it from the socketstream console AND from the console of your Browser
@@ -28,7 +30,6 @@ The Global SS variable is available on client and server. you can access it from
 
 On the Socketstream Console you can Play with the DJ Backbone Model by requiring it. This model, by now, is only testet on the server side.
   
-
 
       SS.require("models/dj.coffee")
       new_dj = new SS.models.dj({name: "a0n", email: "bla@bla.xyz", pw: "insecure"})

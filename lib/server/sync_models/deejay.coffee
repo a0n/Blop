@@ -3,15 +3,15 @@ uuid = require 'node-uuid'
 Seq = require 'seq'
 
 DeeJayStore = (key_prefix) ->
-  @key_prefix = "deejay:" 
+  @key_prefix = key_prefix
 
 _.extend(DeeJayStore.prototype, {
-    
+ 
   findAll: (options) ->
     console.log("starting to find all")
     Seq()
       .seq_((next) ->
-        R.keys "deejay:????????-????-????-????-????????????", next
+        R.keys @key_prefix + "????????-????-????-????-????????????", next
       )
       .flatten()
       .parEach_((next, key) ->
@@ -36,52 +36,89 @@ _.extend(DeeJayStore.prototype, {
     return undefined
 
   find: (model, options) ->
-    SS.log.error.message("deejay store find")
     if _.isString(model)
      id = model
     else if model
      id = model.id
    
-    R.hgetall @key_prefix + id, (err, response) ->
+    R.hgetall @key_prefix + ":" + id, (err, response) ->
       if _.isEmpty(response) || err
         options.error("User not found")
       else
         options.success(response)
-        
-  create: (model, options) ->
-    success = (resp) ->
-       if _.isFunction(options.success)
-         options.success(resp)
-    
+
+
+  save: (model, options) ->
     key_prefix = @key_prefix
-    model.id = uuid()
+    if _.isUndefined(model.id)
+      id = uuid()
+    else
+      id = uuid()
     Seq()
-      .par_((next) -> R.exists key_prefix + model.id, next)
-      .par_((next) -> R.hexists key_prefix + "emails", model.get("email"), next)
-      .par_((next) -> R.hexists key_prefix + "names", model.get("name") , next)
-      .seq_((next, key_exists, email_exists, name_exists) ->
-        if (key_exists)
-          next("key exists")
-        else if (email_exists)
-          next("email exists")
-        else if (name_exists)
-          next("name exists")
+      .seq_((next)->
+        if _.isArray model._validate_uniqueness_of 
+          next(undefined, model._validate_uniqueness_of)
         else
           next()
-      ).seq_((next) ->
+      )
+      .flatten()
+      .parEach_((next, key) ->
+        console.log(key)
+        R.hget key_prefix + ":" + key + "s", model.get(key), next.into(key)
+      )
+      .par_((next) ->
+        R.exists key_prefix + ":" + id, next.into("id")
+      )
+      .seq_((next) ->
+        if @vars["id"] == 1
+          next("STRANGE ERROR - GENERATED UUID IS NOT UNIQUE")
+          delete @vars["id"]
+        else
+          console.log "fck"
+          console.log @vars
+          existing_keys = []
+          _.each @vars, (val, key) ->
+            if _.isString(val) && val != id
+              existing_keys.push key
+          if existing_keys.length == 0
+            next()
+          else
+            next("The following keys are not unique: " + existing_keys.join(", "))
+      )
+      .seq_((next) ->
+        console.log "new asdjkkjlasdjkl", model.isNew()
+        
         write_transaction = R.multi();
-        timestamp = {created_at: Date.now()}
+        if model.isNew()
+          timestamp = {created_at: Date.now()}
+        else
+          timestamp = {updated_at: Date.now()}
+          
         model.attributes = _.extend(model.attributes, timestamp)
-
-        write_transaction.hsetnx "deejay:emails", model.get("email"), model.id
-        write_transaction.hsetnx "deejay:names", model.get("name"), model.id
-        write_transaction.hmset key_prefix + model.id, model.toJSON()
+        
+        delete @vars["id"]
+        
+        _.each @vars, (num, key) ->
+          write_transaction.hdel key_prefix + ":" + key + "s", model.previous(key) if model.hasChanged(key)
+          write_transaction.hsetnx key_prefix + ":" + key + "s", model.get(key), id
+        
+        if model.hasChanged()
+          write_transaction.hmset key_prefix + ":" + id, model.changedAttributes()
+        else
+          write_transaction.hmset key_prefix + ":" + id, model.toJSON()
         
         write_transaction.exec (err, replies) ->
+          console.log("replies", replies)
           if replies == null || err
             next("Object could not be saved. Please try again")
           else
-            success(timestamp)
+            if err
+              options.error("User not found")
+            else
+              if model.id
+                options.success(timestamp)
+              else
+                options.success(_.extend(timestamp, {id: id}))
       )
       .catch((err) ->
         if options.error
@@ -89,93 +126,14 @@ _.extend(DeeJayStore.prototype, {
         else
           SS.log.error.message(err)
       )
-      
+
     return undefined
+
+  create: (model, options) ->
+    @.save(model, options)
     
   update: (model, options) ->
-    SS.log.error.message("deejay store update")
-    # we need to prevent that the user changes the email to his account, maybe it is better ONLY use emails - and don't use any id's for the user - but i guess that it would
-    # be nicer to support multiple emails and accounts for authentication bringing a little more complexity
-    
-    timestamp = {updated_at: Date.now()}
-    changes = _.extend(model.changedAttributes(), timestamp)
-    key_prefix = "deejay:"
-    
-    if !model.hasChanged()
-      options.success(false)
-    else
-      #start watching keys 
-      Seq()
-        # watching all relevant keys if neccecary to provide optimistic locking for changes to this record
-        .par_((next)->
-          R.watch key_prefix + model.id, next
-        )
-        .par_((next)->
-          if model.hasChanged("email")
-             R.watch key_prefix + "emails", next
-          else
-            next()
-        )
-        .par_((next)->
-          if model.hasChanged("name")
-             R.watch key_prefix + "names", next
-          else
-            next()
-        )
-        .seq_((next, hash, email, name) ->
-          next()
-        )
-        .par_((next) -> 
-          if model.hasChanged("email")
-            R.hget key_prefix + "emails", changes["email"], next
-          else
-            next()
-        )
-        .par_((next) -> 
-          if model.hasChanged("name")
-            R.hget key_prefix + "names", changes["name"], next
-          else
-            next()
-        )
-        .seq_((next, id_by_email, id_by_name) ->
-          errors = []
-          if _.isString(id_by_email) && id_by_email != model.id
-            errors.push "email is already in use by another deejay"
-  
-          if _.isString(id_by_name) && id_by_name != model.id
-             errors.push "name is already in use by another deejay"
-  
-          if errors.length > 0
-            R.unwatch key_prefix + model.id, key_prefix + "emails", key_prefix + "names"
-            next errors
-          else
-            next()
-        )
-        .seq((next) ->
-          write_transaction = R.multi();
-
-          write_transaction.hmset key_prefix + model.id, changes
-                
-          if model.hasChanged("email")
-            write_transaction.hset "deejay:emails", changes["email"], model.id 
-            write_transaction.hdel "deejay:emails", model.previous("email")
-          if model.hasChanged("name")
-            write_transaction.hset "deejay:names", changes["name"], model.id
-            write_transaction.hdel "deejay:names", model.previous("name")
-
-          write_transaction.exec (err, replies) ->
-            if err || replies == null 
-              next "Object could not be saved. Please try again"
-            else
-              options.success(timestamp) if _.isFunction(options.success)
-        )
-        .catch((err) ->
-          if options.error
-            options.error err
-          else
-            SS.log.error.message(err)
-        )
-      return undefined
+    @.save(model, options)
 
   destroy: (model, options) ->
     SS.log.error.message("deejay store destroy")
