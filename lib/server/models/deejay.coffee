@@ -1,29 +1,29 @@
 _ = require('underscore')._
 Backbone = SS.require("backbone-redis.coffee")
-DeeJayStore = SS.require("sync_models/deejay")
+ObjectStore = SS.require("sync_models/object_store")
 
 
 Followers = Backbone.Collection.extend ({
   model: DeeJay
-  redisStorage: new DeeJayStore("deejay")
+  redisStorage: new ObjectStore({model_name: "dj", collection_name: "followers"})
 })
 
 Following = Backbone.Collection.extend ({
   model: DeeJay
-  redisStorage: new DeeJayStore("deejay")
+  redisStorage: new ObjectStore({model_name: "dj", collection_name: "following"})
 })
 
 
 DeeJay = Backbone.Model.extend ({
   initialize: () ->
-    @_validate_uniqueness_of = ["name", "email"]
+    @_unique_index_of = ["name", "email"]
     @followers = new Followers()
     @followers.extend({parrent: @})
     
     @following = new Following()
     @following.extend({parrent: @})
     
-  redisStorage: new DeeJayStore("dj")
+  redisStorage: new ObjectStore({model_name: "dj"})
     
   # must validate fields in O(1) all calls that need to validate something against the db has to be in the sync method
   validate: (attrs) ->

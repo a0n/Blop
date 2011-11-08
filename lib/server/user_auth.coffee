@@ -15,8 +15,9 @@ get_user_id_for_email = (email, cb) ->
     cb user_id
   
 validate_user_login = (user_id, password, cb) ->
-  R.hget "dj:" + user_id, "pw", (err, pw) -> 
-    if password == pw
+  R.hget "dj:ids", user_id, (err, user_attributes) ->
+    console.log user_attributes["pw"]
+    if password == user_attributes.pw
       cb true
     else
       cb false

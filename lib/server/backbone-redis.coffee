@@ -3,10 +3,11 @@ Backbone = require 'backbone'
 Backbone.sync = (method, model, options) ->
   resp = undefined
   store = model.redisStorage or model.collection.redisStorage
+  
   try
     switch method
       when "read"
-        if model.id then store.find(model, options) else store.findAll(options)
+        if model.id then store.find(model, options) else store.findAll(model, options)
       when "create"
         store.create(model, options)
       when "update"

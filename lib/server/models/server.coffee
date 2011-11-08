@@ -2,17 +2,16 @@ _ = require('underscore')._
 Backbone = SS.require("backbone-redis.coffee")
 
 DeeJay = SS.require "models/deejay.coffee"
-DeeJayStore = SS.require "sync_models/deejay.coffee"
+ObjectStore = SS.require "sync_models/object_store.coffee"
 
 DeeJays = Backbone.Collection.extend ({
   model: DeeJay
-  redisStorage: new DeeJayStore("dj")
+  redisStorage: new ObjectStore({model_name: "dj"})
 })
 
 Server = Backbone.Model.extend ({ 
   initialize: () ->
     @deejays = new DeeJays()
-    @deejays.extend({parrent: @})
 })
 
 _.extend(SS.models, {server: Server, deejay: DeeJay})
